@@ -2,19 +2,22 @@ import io
 import pandas as pd
 import os
 import time
-import ijson
+import json
 
 def build_fda_index(file_path, key_field):
 
     index = {}
 
     with open(file_path, "r", encoding="utf-8") as file:
-        objects = ijson.items(file, "results.item")
-        
-        for obj in objects:
-            key = obj.get(key_field) 
-            if key:
-                index[key] = obj
+        data = json.load(file)
+
+        if "results" in data and isinstance(data["results"], list):
+            for obj in data["results"]:
+                key = obj.get(key_field)
+                if key:
+                    index[key] = obj
+        else:
+            print("Error: 'results' field missing or not a list.")
 
     return index
 
@@ -77,7 +80,6 @@ def combine_info(input_directory, output_directory):
 def clean_csv(input_directory):
     with open(input_directory, "rb") as f:
         content = f.read().decode("ISO-8859-1", errors="replace")
-        cleaned_file = input_directory.replace(".csv", "_cleaned.csv")
     df = pd.read_csv(io.StringIO(content), encoding="utf-8")
     return df
 
@@ -87,7 +89,12 @@ def write_csv(output_file, df):
 if __name__ == "__main__":
 
     base_directory = os.path.dirname(os.path.dirname(__file__))
-    input_directory = os.getenv('INPUT_DIR', os.path.join(base_directory, 'data', 'input', 'ml_devices.csv'))
+    input_directory = os.getenv('INPUT_DIR', os.path.join(base_directory, 'data', 'input'))
+    if os.path.isdir(input_directory):
+        input_directory = os.path.join(input_directory, 'ml_devices.csv')
+    else:
+        input_directory = input_directory
+    print(input_directory)
     output_directory = os.getenv('OUTPUT_DIR', os.path.join(base_directory, 'data', 'output'))
 
     combine_info(input_directory, output_directory)

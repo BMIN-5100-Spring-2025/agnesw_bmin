@@ -11,3 +11,7 @@ venv/
 
 # MacOS
 .DS_Store
+
+#input data
+data/input/device-510k.json
+data/input/device-pma.json
