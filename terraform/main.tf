@@ -32,3 +32,12 @@ resource "aws_s3_bucket_lifecycle_configuration" "agnesw-project_expiration" {
     }
   }
 }
+
+resource "aws_ecr_repository" "agnesw-project" {
+  name                 = "agnesw-project"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
