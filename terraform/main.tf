@@ -44,44 +44,36 @@ resource "aws_ecr_repository" "agnesw-project" {
 
 resource "aws_ecs_task_definition" "service" {
   family = "agnesw_app"
+  execution_role_arn = aws_iam_role.execution_role_arn.arn 
+  task_role_arn = aws_iam_role.task_role_arn.arn
+  network_mode = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu    = 1024
+  memory = 4096
   container_definitions = jsonencode([
     {
-      name      = "first"
-      image     = "061051226319.dkr.ecr.us-east-1.amazonaws.com/agnesw-project:0.0.1"
-      cpu       = 256
-      memory    = 2048
+      name      = "first",
+      image     = "061051226319.dkr.ecr.us-east-1.amazonaws.com/agnesw-project:0.0.3",
+      memory        = 4096
+      cpu           = 1024
       essential = true
-      portMappings = [
-        {
-          containerPort = 80
-          hostPort      = 80
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group = aws_cloudwatch_log_group.agnesw_app_task_log.name
+          awslogs-region = "us-east-1"
+          awslogs-stream-prefix = "ecs"
         }
-      ]
-    },
-    {
-      name      = "second"
-      image     = "061051226319.dkr.ecr.us-east-1.amazonaws.com/agnesw-project:0.0.1"
-      cpu       = 128
-      memory    = 256
-      essential = true
-      portMappings = [
-        {
-          containerPort = 443
-          hostPort      = 443
-        }
-      ]
+      }
+      environment = [
+        { name = "INPUT_DIR", value = "/data/input"},
+        { name = "OUTPUT_DIR", value = "/data/output"},
+        { name = "S3_BUCKET_NAME", value = "agnesw-project"},
+        { name = "RUN_MODE", value = "aws"},
+        { name = "OUTPUT_S3_KEY", value = "output/aiml_info.csv"}
+      ],
     }
   ])
-
-  volume {
-    name      = "service-storage"
-    host_path = "/ecs/service-storage"
-  }
-
-  placement_constraints {
-    type       = "memberOf"
-    expression = "attribute:ecs.availability-zone in [us-east-1a, us-east-1b]"
-  }
 }
 
 resource "aws_iam_role" "execution_role_arn" {
@@ -121,6 +113,10 @@ resource "aws_iam_role" "task_role_arn" {
       }
     ]
   })
+}
+
+resource "aws_cloudwatch_log_group" "agnesw_app_task_log" {
+  name = "/ecs/agnesw_app_task_log"
 }
 
 resource "aws_iam_policy" "ecs_task_custom_policy" {

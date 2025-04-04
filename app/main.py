@@ -7,17 +7,17 @@ import boto3
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Environment Variables for Fargate Compatibility
+# Environment Variables
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "agnesw-project")
 INPUT_S3_KEYS = {
     "ml_devices": "ml_devices.csv",
     "510k": "device-510k.json",
     "pma": "device-pma.json"
 }
-OUTPUT_S3_KEY = os.getenv("OUTPUT_S3_KEY", "data/output/aiml_info.csv")
+OUTPUT_S3_KEY = os.getenv("OUTPUT_S3_KEY", "output/aiml_info.csv")
 INPUT_DIR = os.getenv("INPUT_DIR", "data/input")
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", "data/output")
 RUN_MODE = os.getenv("RUN_MODE", "local")
@@ -26,7 +26,6 @@ RUN_MODE = os.getenv("RUN_MODE", "local")
 s3 = boto3.client('s3')
 
 def download_all_from_s3(bucket, input_keys, local_dir):
-    """Download all required files from S3 to local storage"""
     os.makedirs(local_dir, exist_ok=True)
     
     for key, filename in input_keys.items():
@@ -34,9 +33,7 @@ def download_all_from_s3(bucket, input_keys, local_dir):
         logger.info(f"Downloading {filename} from S3 bucket {bucket} to {local_path}")
         s3.download_file(bucket, filename, local_path)
 
-
 def upload_to_s3(local_path, bucket, s3_key):
-    """Upload file from local storage to S3"""
     logger.info(f"Uploading {local_path} to S3 bucket {bucket} as {s3_key}")
     s3.upload_file(local_path, bucket, s3_key)
 
@@ -115,29 +112,30 @@ def write_csv(output_file, df):
 
 if __name__ == "__main__":
     
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(INPUT_DIR, exist_ok=True)  
+    
     if RUN_MODE == "local":
-        input_path = os.path.join("data/input", INPUT_S3_KEYS["ml_devices"])
+        logger.info("Running in local mode")
+        input_path = os.path.join(INPUT_DIR, INPUT_S3_KEYS["ml_devices"])
         output_path = os.path.join(OUTPUT_DIR, "aiml_info.csv")
         k_file_path = os.path.join(INPUT_DIR, INPUT_S3_KEYS["510k"])
         pma_file_path = os.path.join(INPUT_DIR, INPUT_S3_KEYS["pma"])
-        
-        os.makedirs(INPUT_DIR, exist_ok=True)
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-    
+          
     else:
-        input_path = INPUT_S3_KEYS["ml_devices"]
-        output_path = OUTPUT_S3_KEY
-        k_file_path = INPUT_S3_KEYS["510k"]
-        pma_file_path = INPUT_S3_KEYS["pma"]
-        
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-    
-    if RUN_MODE == "fargate":
+        logger.info("Running in AWS mode")
+        logger.info("Downloading files from S3")
         download_all_from_s3(S3_BUCKET_NAME, INPUT_S3_KEYS, INPUT_DIR)
 
+        input_path = os.path.join(INPUT_DIR, os.path.basename(INPUT_S3_KEYS["ml_devices"]))
+        output_path = os.path.join(OUTPUT_DIR, "aiml_info.csv")
+        k_file_path = os.path.join(INPUT_DIR, os.path.basename(INPUT_S3_KEYS["510k"]))
+        pma_file_path = os.path.join(INPUT_DIR, os.path.basename(INPUT_S3_KEYS["pma"]))
+    
+    logger.info(f"Processing files...")
     combine_info(input_path, output_path, k_file_path, pma_file_path)
 
-    if RUN_MODE == "fargate":
+    if RUN_MODE != "local":
         upload_to_s3(output_path, S3_BUCKET_NAME, OUTPUT_S3_KEY)
     
     logger.info("Processing complete!")

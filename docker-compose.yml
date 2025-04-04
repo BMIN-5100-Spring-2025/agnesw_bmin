@@ -1,6 +1,8 @@
 services:
   app:
-    image: 061051226319.dkr.ecr.us-east-1.amazonaws.com/agnesw-project:0.0.1
+    image: agnesw-project
+    platform: linux/amd64
+    mem_limit: 4g
     build:
       context: .
       dockerfile: Dockerfile
@@ -9,7 +11,7 @@ services:
       - OUTPUT_DIR=/data/output
       - S3_BUCKET_NAME=agnesw-project
       - RUN_MODE=local
-      - OUTPUT_S3_KEY=data/output/aiml_info.csv
+      - OUTPUT_S3_KEY=output/aiml_info.csv
     volumes:
       - ./data/input:/data/input:ro
       - ./data/output:/data/output
